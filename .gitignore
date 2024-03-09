@@ -1,1 +1,11 @@
+# pycache folder
 __pycache__/
+
+# data
+data
+
+# .ipynb checkpoint files
+.ipynb_checkpoints/
+src/model/.ipynb_checkpoints/
+
+engine

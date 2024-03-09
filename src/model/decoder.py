@@ -17,6 +17,7 @@ class Decoder(nn.Module):
         for i in range(len(output_modules)):
             self.out_modules.append(output_modules[i])
         self.n_out_groups = len(output_modules)
+        self.n_out_features = sum([output_modules[i].n_features for i in range(self.n_out_groups)])
         
     def forward(self, z):
         for i in range(len(self.main)):
