@@ -374,11 +374,16 @@ class GaussianMixture(nn.Module):
         # y = logp = - 0.5k*log(2pi) -(0.5*(x-mean[i])^2)/variance - 0.5k*log(variance)
         # sum terms for each component (sum is over last dimension)
         # x is unsqueezed to (n_sample,1,dim), so broadcasting of mean (n_mix_comp,dim) works
-        y = -(x.unsqueeze(-2) - self.mean).square().div(2 * self.covariance).sum(-1)
-        y = y - self._log_var_factor * self.log_var.sum(-1)
+
+        # y = -(x.unsqueeze(-2) - self.mean).square().div(2 * self.covariance).sum(-1)
+        y = -(x.unsqueeze(-2) - self.mean.to(x.device)).square().div(2 * self.covariance.to(x.device)).sum(-1)
+
+        # y = y - self._log_var_factor * self.log_var.sum(-1)
+        y = y - self._log_var_factor * self.log_var.to(x.device).sum(-1)
         y = y + self._pi_term
         # For each component multiply by mixture probs
-        y = y + torch.log_softmax(self.weight, dim=0)
+        # y = y + torch.log_softmax(self.weight, dim=0)
+        y = y + torch.log_softmax(self.weight.to(x.device), dim=0)
         y = torch.logsumexp(y, dim=-1)
         y = y + self._prior_log_prob()  # += gives cuda error
 

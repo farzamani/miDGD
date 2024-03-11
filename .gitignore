@@ -9,3 +9,7 @@ data
 src/model/.ipynb_checkpoints/
 
 engine
+saved_model
+
+main.ipynb
+main_tcga.ipynb
