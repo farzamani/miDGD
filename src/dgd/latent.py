@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.distributions as D
 import numpy as np
 
+
 class RepresentationLayer(torch.nn.Module):
     """
     Implements a representation layer, that accumulates pytorch gradients.
@@ -82,6 +83,7 @@ class RepresentationLayer(torch.nn.Module):
             Number of samples: {self.n_sample}
             Value initialization: {self._value_init}
         """
+
 
 class gaussian:
     """
@@ -177,7 +179,8 @@ class softball:
             # n random directions
             sample.div_(sample.norm(dim=-1, keepdim=True))
             # n random lengths
-            local_len = self.radius * torch.pow(torch.rand((n, 1)), 1.0 / self.dim)
+            local_len = self.radius * \
+                torch.pow(torch.rand((n, 1)), 1.0 / self.dim)
             sample.mul_(local_len.expand(-1, self.dim))
         return sample
 
@@ -187,6 +190,7 @@ class softball:
         return self._norm - torch.log(
             1 + torch.exp(self.sharpness * (z.norm(dim=-1) / self.radius - 1))
         )
+
 
 class GaussianMixture(nn.Module):
     """
@@ -353,7 +357,8 @@ class GaussianMixture(nn.Module):
             self.n_mix_comp * self._weight_alpha
         ) - self.n_mix_comp * math.lgamma(self._weight_alpha)
         # weights are initialized uniformly so that components start out equi-probable
-        self._weight = nn.Parameter(torch.ones(self.n_mix_comp), requires_grad=True)
+        self._weight = nn.Parameter(torch.ones(
+            self.n_mix_comp), requires_grad=True)
 
     @property
     def weight(self):
@@ -374,15 +379,12 @@ class GaussianMixture(nn.Module):
         # y = logp = - 0.5k*log(2pi) -(0.5*(x-mean[i])^2)/variance - 0.5k*log(variance)
         # sum terms for each component (sum is over last dimension)
         # x is unsqueezed to (n_sample,1,dim), so broadcasting of mean (n_mix_comp,dim) works
-
-        # y = -(x.unsqueeze(-2) - self.mean).square().div(2 * self.covariance).sum(-1)
-        y = -(x.unsqueeze(-2) - self.mean.to(x.device)).square().div(2 * self.covariance.to(x.device)).sum(-1)
-
-        # y = y - self._log_var_factor * self.log_var.sum(-1)
+        y = -(x.unsqueeze(-2) - self.mean.to(x.device)
+              ).square().div(2 * self.covariance.to(x.device)).sum(-1)
         y = y - self._log_var_factor * self.log_var.to(x.device).sum(-1)
         y = y + self._pi_term
+
         # For each component multiply by mixture probs
-        # y = y + torch.log_softmax(self.weight, dim=0)
         y = y + torch.log_softmax(self.weight.to(x.device), dim=0)
         y = torch.logsumexp(y, dim=-1)
         y = y + self._prior_log_prob()  # += gives cuda error
@@ -394,7 +396,8 @@ class GaussianMixture(nn.Module):
         # Mixture weights
         p = self._dirichlet_constant
         if self._weight_alpha != 1:
-            p = p + (self._weight_alpha - 1.0) * (self.mixture_probs().log().sum())
+            p = p + (self._weight_alpha - 1.0) * \
+                (self.mixture_probs().log().sum())
         # Means
         p = p + self._mean_prior.log_prob(self.mean).sum()
         # log_var
@@ -467,13 +470,15 @@ class GaussianMixture(nn.Module):
             samples = self.mean.clone().cpu().detach()
         else:
             samples = (
-                self.component_sample(n_new_samples).view(-1, self.dim).cpu().detach()
+                self.component_sample(
+                    n_new_samples).view(-1, self.dim).cpu().detach()
             )
         return samples
-    
+
     def clustering(self, x):
         """compute the cluster assignment (as int) for each sample"""
-        return torch.argmax(self.sample_probs(x),dim=-1).to(torch.int16)
+        return torch.argmax(self.sample_probs(x), dim=-1).to(torch.int16)
+
 
 class GaussianMixtureSupervised(GaussianMixture):
     """
@@ -491,43 +496,48 @@ class GaussianMixtureSupervised(GaussianMixture):
             self,
             Nclass: int,
             Ncompperclass: int,
-            dim: int, 
+            dim: int,
             covariance_type="diagonal",
-            mean_init=(2.0,5.0),
-            sd_init=(0.5,1.0),
+            mean_init=(2.0, 5.0),
+            sd_init=(0.5, 1.0),
             weight_alpha=1
-            ):
-        super(GaussianMixtureSupervised, self).__init__(Nclass*Ncompperclass, dim, covariance_type, mean_init, sd_init, weight_alpha)
-        
-        self.Nclass = Nclass # number of classes in the data
-        self.Ncpc = Ncompperclass # number of components per class
+    ):
+        super(GaussianMixtureSupervised, self).__init__(
+            Nclass*Ncompperclass, dim, covariance_type, mean_init, sd_init, weight_alpha)
 
-    def forward(self,x,label=None):
+        self.Nclass = Nclass  # number of classes in the data
+        self.Ncpc = Ncompperclass  # number of components per class
+
+    def forward(self, x, label=None):
 
         # return unsupervized loss if there are no labels provided
         if label is None:
             y = super().forward(x)
             return y
-        
-        y = - (x.unsqueeze(-2).unsqueeze(-2) - self.mean.view(self.Nclass,self.Ncpc,-1)).square().div(2 * self.covariance.view(self.Nclass,self.Ncpc,-1)).sum(-1)
-        y = y + self._log_var_factor * self.log_var.view(self.Nclass,self.Ncpc,-1).sum(-1)
+
+        y = - (x.unsqueeze(-2).unsqueeze(-2) - self.mean.view(self.Nclass, self.Ncpc, -1)
+               ).square().div(2 * self.covariance.view(self.Nclass, self.Ncpc, -1)).sum(-1)
+        y = y + self._log_var_factor * \
+            self.log_var.view(self.Nclass, self.Ncpc, -1).sum(-1)
         y = y + self._pi_term
-        y += torch.log_softmax(self.weight.view(self.Nclass,self.Ncpc),dim=-1)
+        y += torch.log_softmax(self.weight.view(self.Nclass,
+                               self.Ncpc), dim=-1)
         y = y.sum(-1)
-        y = y[(np.arange(y.shape[0]),label)] * self.Nclass # this is replacement for logsumexp of supervised samples
-        
+        # this is replacement for logsumexp of supervised samples
+        y = y[(np.arange(y.shape[0]), label)] * self.Nclass
+
         y = y + self._prior_log_prob()
         return - y
 
-    def label_mixture_probs(self,label):
-        return torch.softmax(self.weight[label],dim=-1)
-    
+    def label_mixture_probs(self, label):
+        return torch.softmax(self.weight[label], dim=-1)
+
     def supervised_sampling(self, label, sample_type='random'):
         # get samples for each component
         if sample_type == 'origin':
             # choose the component means
-            samples = self.mean.clone().detach().unsqueeze(0).repeat(len(label),1,1)
+            samples = self.mean.clone().detach().unsqueeze(0).repeat(len(label), 1, 1)
         else:
             samples = self.component_sample(len(label))
         # then select the correct component
-        return samples[range(len(label)),label]
+        return samples[range(len(label)), label]

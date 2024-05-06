@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
+
 def logNBdensity(k, m, r):
     """
     Negative Binomial NB(k;m,r), where m is the mean and k is "number of failures"
@@ -20,6 +21,7 @@ def logNBdensity(k, m, r):
     x += k * torch.log(m * (r + m + eps) ** (-1) + eps)
     x += r * torch.log(r * (r + m + eps) ** (-1))
     return x
+
 
 class OutputModule(nn.Module):
     """
@@ -96,7 +98,8 @@ class NB_Module(OutputModule):
 
         # substracting 1 now and adding it to the learned dispersion ensures a minimum value of 1
         self.log_r = torch.nn.Parameter(
-            torch.full(fill_value=math.log(r_init - 1), size=(1, out_features)),
+            torch.full(fill_value=math.log(r_init - 1),
+                       size=(1, out_features)),
             requires_grad=True,
         )
         self._scaling_type = scaling_type

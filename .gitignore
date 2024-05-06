@@ -7,9 +7,15 @@ data
 # .ipynb checkpoint files
 .ipynb_checkpoints/
 src/model/.ipynb_checkpoints/
+src*
 
 engine
 saved_model
 
 main.ipynb
 main_tcga.ipynb
+
+run_*
+results*
+
+wandb*

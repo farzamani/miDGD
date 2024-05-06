@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-from src.utils.helpers import get_activation
+from base.utils.helpers import get_activation
 
 
 class Decoder(nn.Module):
-    def __init__(self, input_dim: int, hidden_dims: int, output_modules: list, activation="relu"):
+    def __init__(self, input_dim: int, hidden_dims: list, output_modules: list, activation="relu"):
         super(Decoder, self).__init__()
         # set up the shared decoder
         self.main = nn.ModuleList()

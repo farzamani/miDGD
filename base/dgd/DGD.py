@@ -1,4 +1,4 @@
-from src.dgd.latent import GaussianMixture
+from base.dgd.latent import GaussianMixture
 import torch.nn as nn
 
 
@@ -16,27 +16,40 @@ class DGD(nn.Module):
     def forward(self, z):
         return self.decoder(z)
 
-    def loss(self, z, y, target, scale, gmm_loss=True, reduction="sum"):
-        if len(target) == 1:  # Only one modality is passed
-            # mrna_loss = self.decoder.loss(y[0], target[0], scale[0], mod_id=0, reduction=reduction)
+    def loss(self, z, y, target, scale, gmm_loss=True, reduction="sum", type="combined"):
+        if type == "combined":  # Both mRNA and miRNA data are passed
+            self.dec_loss_mirna, self.dec_loss_mrna = self.decoder.loss(
+                y, target, scale, reduction=reduction, type=type)
+        elif type == "mrna" or type == "mirna":  
             self.dec_loss = self.decoder.loss(
-                y[0], target[0], scale[0], mod_id=0, reduction=reduction)
-        else:  # Both mRNA and miRNA data are passed
+                y, target, scale, mod_id="single", reduction=reduction, type=type)
+        elif type == "midgd":
             self.dec_loss = self.decoder.loss(
-                y, target, scale, reduction=reduction)
-        if gmm_loss:
+                y[1], target[0], scale[0], mod_id="mrna", reduction=reduction, type=type)
+        elif type == "switch":
+            self.dec_loss = self.decoder.loss(
+                y[0], target[0], scale[0], mod_id="mirna", reduction=reduction, type=type)
+            
+        if not gmm_loss:
+            if type == "combined":
+                return self.dec_loss_mirna, self.dec_loss_mrna, None
+            else:
+                return self.dec_loss, None
+        else:
             self.gmm_loss = self.gmm(z)
             if reduction == "mean":
                 self.gmm_loss = self.gmm_loss.mean()
             elif reduction == "sum":
                 self.gmm_loss = self.gmm_loss.sum()
-            return self.dec_loss, self.gmm_loss
-        else:
-            return self.dec_loss, None
 
-    def forward_and_loss(self, z, target, scale, gmm_loss=True, reduction="sum"):
+            if type == "combined":
+                return self.dec_loss_mirna, self.dec_loss_mrna, self.gmm_loss
+            else:
+                return self.dec_loss, self.gmm_loss
+
+    def forward_and_loss(self, z, target, scale, gmm_loss=True, reduction="sum", type="combined"):
         y = self.decoder(z)
-        return self.loss(z, y, target, scale, gmm_loss, reduction)
+        return self.loss(z, y, target, scale, gmm_loss, reduction, type)
 
     def get_representations(self, type="train"):
         if type == "train":
