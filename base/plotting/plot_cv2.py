@@ -87,7 +87,7 @@ def plot_gene(dgd, loader, sample_index, epoch, fold=0, type="Train", save='mrna
     sns.set_theme(style="whitegrid")
     
     # Map the histplot to each facet
-    g = sns.displot(data=plotdata, x='value', hue='type', bins=40, log_scale=True, col='sample_index', col_wrap=3, height=3, aspect=1.6, legend=True)
+    g = sns.displot(data=plotdata, x='value', hue='type', bins=40, log_scale=True, col='sample_index', col_wrap=4, height=3, aspect=1.6, legend=True)
     
     # Set the titles and labels
     g.set_titles(col_template=f'{type} gene ' + '{col_name}' + f' in epoch {epoch}')
@@ -148,7 +148,7 @@ def plot_mirna(dgd, loader, sample_index, epoch, fold=0, type="Train", save='mir
     sns.set_theme(style="whitegrid")
     
     # Map the histplot to each facet
-    g = sns.displot(data=plotdata, x='value', hue='type', bins=40, log_scale=True, col='sample_index', col_wrap=3, height=3, aspect=1.6, legend=True)
+    g = sns.displot(data=plotdata, x='value', hue='type', bins=40, log_scale=True, col='sample_index', col_wrap=4, height=3, aspect=1.6, legend=True)
     
     # Set the titles and labels
     g.set_titles(col_template=f'{type} miRNA ' + '{col_name}' + f' in epoch {epoch}')

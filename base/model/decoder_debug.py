@@ -17,6 +17,7 @@ class Decoder(nn.Module):
         self.out_modules = nn.ModuleList()
         for i in range(len(output_modules)):
             self.out_modules.append(output_modules[i])
+            
         self.n_out_groups = len(output_modules)
         self.n_out_features_mirna = output_modules[0].n_features
         self.n_out_features_mrna = output_modules[1].n_features
@@ -74,14 +75,26 @@ class Decoder(nn.Module):
                 return log_prob_mirna, log_prob_mrna
             return log_prob
         elif reduction == 'mean':
+            log_prob_mirna = 0.
+            log_prob_mrna = 0.
             log_prob = 0.
-            if mod_id is not None:
-                log_prob += self.out_modules[mod_id].log_prob(
+
+            if mod_id == "mirna":
+                log_prob += self.out_modules[0].log_prob(
+                    nn_output, target, scale, feature_id=feature_ids).mean()
+            elif mod_id == "mrna":
+                log_prob += self.out_modules[1].log_prob(
+                    nn_output, target, scale, feature_id=feature_ids).mean()
+            elif mod_id == "single":
+                log_prob += self.out_modules[0].log_prob(
                     nn_output, target, scale, feature_id=feature_ids).mean()
             else:
-                for i in range(self.n_out_groups):
-                    log_prob += self.out_modules[i].log_prob(
-                        nn_output[i], target[i], scale[i]).mean()
+                log_prob_mirna += self.out_modules[0].log_prob(
+                    nn_output[0], target[0], scale[0], feature_id=feature_ids).mean()
+                log_prob_mrna += self.out_modules[1].log_prob(
+                    nn_output[1], target[1], scale[1], feature_id=feature_ids).mean()
+                return log_prob_mirna, log_prob_mrna
+            return log_prob
         else:
             dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             if mod_id is not None:
