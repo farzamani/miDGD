@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
 from base.utils.helpers import get_activation
+from base.dgd.nn import NB_Module
 
 
 class Decoder(nn.Module):
-    def __init__(self, input_dim: int, hidden_dims: list, output_modules: list, activation="relu"):
+    def __init__(self, input_dim: int, hidden_dims: list, 
+                 output_module_mirna: NB_Module = None, output_module_mrna: NB_Module = None, 
+                 output_module:NB_Module = None, activation="relu"):
         super(Decoder, self).__init__()
         # set up the shared decoder
         self.main = nn.ModuleList()
@@ -14,21 +17,32 @@ class Decoder(nn.Module):
             input_dim = hidden_dims[i]
 
         # set up the modality-specific output module(s)
-        self.out_modules = nn.ModuleList()
-        for i in range(len(output_modules)):
-            self.out_modules.append(output_modules[i])
+
+        if output_module is None:
+            # set up the modality-specific output module(s)
+            self.out_module_mirna = output_module_mirna
+            self.out_module_mrna = output_module_mrna
             
-        self.n_out_groups = len(output_modules)
-        self.n_out_features_mirna = output_modules[0].n_features
-        self.n_out_features_mrna = output_modules[1].n_features
-        self.n_out_features = self.n_out_features_mrna + self.n_out_features_mirna
-        # self.n_out_features = sum(
-        #     [output_modules[i].n_features for i in range(self.n_out_groups)])
+            self.midgd = True
+            self.n_out_groups = 2
+            self.n_out_features_mirna = output_module_mirna.n_features
+            self.n_out_features_mrna = output_module_mrna.n_features
+            self.n_out_features = self.n_out_features_mrna + self.n_out_features_mirna
+        else:
+            self.midgd = False
+            self.out_module = output_module
+            self.n_out_groups = 1
+            self.n_out_features = output_module.n_features
 
     def forward(self, z):
         for i in range(len(self.main)):
             z = self.main[i](z)
-        out = [outmod(z) for outmod in self.out_modules]
+        if self.midgd:
+            out_mrna = self.out_module_mrna(z)
+            out_mirna = self.out_module_mirna(z)
+            out = [out_mirna, out_mrna]
+        else:
+            out = self.out_module(z)
         return out
 
     def log_prob(self, nn_output, target, scale=1, mod_id=None, feature_ids=None, reduction="sum"):
@@ -59,18 +73,18 @@ class Decoder(nn.Module):
             log_prob = 0.
 
             if mod_id == "mirna":
-                log_prob += self.out_modules[0].log_prob(
+                log_prob += self.out_module_mirna.log_prob(
                     nn_output, target, scale, feature_id=feature_ids).sum()
             elif mod_id == "mrna":
-                log_prob += self.out_modules[1].log_prob(
+                log_prob += self.out_module_mrna.log_prob(
                     nn_output, target, scale, feature_id=feature_ids).sum()
             elif mod_id == "single":
-                log_prob += self.out_modules[0].log_prob(
+                log_prob += self.out_module.log_prob(
                     nn_output, target, scale, feature_id=feature_ids).sum()
-            else:
-                log_prob_mirna += self.out_modules[0].log_prob(
+            else: # combined
+                log_prob_mirna += self.out_module_mirna.log_prob(
                     nn_output[0], target[0], scale[0], feature_id=feature_ids).sum()
-                log_prob_mrna += self.out_modules[1].log_prob(
+                log_prob_mrna += self.out_module_mrna.log_prob(
                     nn_output[1], target[1], scale[1], feature_id=feature_ids).sum()
                 return log_prob_mirna, log_prob_mrna
             return log_prob
@@ -80,18 +94,18 @@ class Decoder(nn.Module):
             log_prob = 0.
 
             if mod_id == "mirna":
-                log_prob += self.out_modules[0].log_prob(
+                log_prob += self.out_module_mirna.log_prob(
                     nn_output, target, scale, feature_id=feature_ids).mean()
             elif mod_id == "mrna":
-                log_prob += self.out_modules[1].log_prob(
+                log_prob += self.out_module_mrna.log_prob(
                     nn_output, target, scale, feature_id=feature_ids).mean()
             elif mod_id == "single":
-                log_prob += self.out_modules[0].log_prob(
+                log_prob += self.out_module.log_prob(
                     nn_output, target, scale, feature_id=feature_ids).mean()
             else:
-                log_prob_mirna += self.out_modules[0].log_prob(
+                log_prob_mirna += self.out_module_mirna.log_prob(
                     nn_output[0], target[0], scale[0], feature_id=feature_ids).mean()
-                log_prob_mrna += self.out_modules[1].log_prob(
+                log_prob_mrna += self.out_module_mrna.log_prob(
                     nn_output[1], target[1], scale[1], feature_id=feature_ids).mean()
                 return log_prob_mirna, log_prob_mrna
             return log_prob

@@ -26,27 +26,33 @@ from base.engine.train import train_midgd
 sweep_configuration = {
     "name": "sweep",
     "method": "bayes",
-    "metric": {"goal": "minimize", "name": "test_spearman"},
+    "metric": {"goal": "minimize", "name": "test_recon_mrna"},
     "parameters": {
         "activation": {"values": ["relu", "leaky_relu"]},
-        "latent_dim": {"values": [15, 20, 25]},
-        "hidden_dims": {"values": [[128, 128], [128, 256], [256, 256], [128, 256, 256], [128, 128, 256]]},
-        "fc_mirna": {"values": [128, 256, 512]},
+        "latent_dim": {"values": [15, 18, 20, 25]},
+        "hidden_dims": {"values": [[128, 128], [128, 256], [256, 256], [128, 128, 128], [128, 128, 256], [128, 256, 256]]},
+        "fc_mirna": {"values": [128, 256, 512, 1024]},
         "fc_mrna": {"values": [256, 512, 1024]},
         "reduction_type": {"value": "sum"},
         "scaling_type": {"value": "sum"},
-        "n_tissues": {"values": [20, 30, 50]},
+        "n_tissues": {"values": [20, 30, 40, 50]},
         "learning_rates": {
             "parameters": { 
                 "dec": {"value": 0.001},
                 "rep": {"value": 0.01},
                 "gmm": {"value": 0.01}
             }},
-        "weight_decay": {"value": 0.},
+        "weight_decay": {"values": [0., 0.00001, 0.0001]},
         "betas": {"value": (0.9, 0.999)},
-        "nepochs": {"value": 201},
+        "nepochs": {"value": 251},
+        "batch_size": {"values": [64, 128, 256]},
+        "gmm_mean": {"values": [2.0, 5.0, 8.0]},
+        "sd_mean": {"values": [0.2, 0.5]},
+        "r_init": {"values": [2, 4, 6]},
     },
 }
+sweep_id = "plm5knml"
+project = "midgd-sweep"
 
 os.environ['WANDB_NOTEBOOK_NAME'] = 'tcga_midgd_sweep.ipynb'
 sweep_id = wandb.sweep(
@@ -70,8 +76,13 @@ def main():
     weight_decay = wandb.config.weight_decay
     betas = wandb.config.betas
     nepochs = wandb.config.nepochs
+    batch_size = wandb.config.batch_size
+    gmm_mean = wandb.config.gmm_mean
+    sd_mean = wandb.config.sd_mean
+    r_init = wandb.config.r_init
+    
 
-    seed = 42
+    seed = 1234
     set_seed(seed)
     num_workers = 14
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -92,9 +103,6 @@ def main():
     val_mrna = tcga_mrna.iloc[train_end:]
     train_mirna = tcga_mirna.iloc[:train_end]
     val_mirna = tcga_mirna.iloc[train_end:]
-
-    # Train, val, and test data loaders
-    batch_size = 256
     
     # Default scaling_type = "mean"
     train_dataset = GeneExpressionDatasetCombined(train_mrna, train_mirna, scaling_type=scaling_type)
@@ -118,7 +126,7 @@ def main():
         nn.Linear(hidden_dims[-1], fc_mirna),
         get_activation(activation),
         nn.Linear(fc_mirna, mirna_out_dim))
-    output_mirna_layer = NB_Module(mirna_out_fc, mirna_out_dim, scaling_type=scaling_type)
+    output_mirna_layer = NB_Module(mirna_out_fc, mirna_out_dim, r_init=r_init, scaling_type=scaling_type)
     output_mirna_layer.n_features = mirna_out_dim
     
     # set up an output module for the mRNA expression data
@@ -126,15 +134,15 @@ def main():
         nn.Linear(hidden_dims[-1], fc_mrna),
         get_activation(activation),
         nn.Linear(fc_mrna, mrna_out_dim))
-    output_mrna_layer = NB_Module(mrna_out_fc, mrna_out_dim, scaling_type=scaling_type)
+    output_mrna_layer = NB_Module(mrna_out_fc, mrna_out_dim, r_init=r_init, scaling_type=scaling_type)
     output_mrna_layer.n_features = mrna_out_dim
     
     # set up the decoder
     decoder = Decoder(latent_dim, hidden_dims, output_mirna_layer, output_mrna_layer, activation=activation).to(device)
     
     # setup gmm init
-    gmm_mean_scale = 5.0 # usually between 2 and 10
-    sd_mean_init = 0.2 * gmm_mean_scale / n_tissues # empirically good for single-cell data at dimensionality 20
+    gmm_mean_scale = gmm_mean # usually between 2 and 10
+    sd_mean_init = sd_mean * gmm_mean_scale / n_tissues # empirically good for single-cell data at dimensionality 20
     gmm_spec={"mean_init": (gmm_mean_scale, 5.0), "sd_init": (sd_mean_init, 1.0), "weight_alpha": 1}
 
     # init a DGD model
@@ -148,7 +156,7 @@ def main():
     sample_index = [1382, 1310, 34, 360, 765, 999, 2000, 93, 0, 10, 20, 300, 123, 345, 456, 567, 789, 12, 1050, 56]
 
     pr = 5 # how often to print epoch
-    plot = 50 # how often to print plot
+    plot = 200 # how often to print plot
     
     loss_tab = train_midgd(
         dgd, train_loader, validation_loader, device, train_dataset, validation_dataset,
@@ -158,7 +166,5 @@ def main():
         sample_index=sample_index, wandb_log=True
     )
 
-
-
 # Start sweep job.
-wandb.agent(sweep_id, function=main, count=8)
+wandb.agent(sweep_id, project="midgd-sweep", function=main, count=50)

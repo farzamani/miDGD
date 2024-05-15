@@ -53,6 +53,9 @@ class GeneExpressionDatasetCombined(Dataset):
         elif self.scaling_type == 'max':
             mrna_lib = torch.max(mrna_expression, dim=-1).values
             mirna_lib = torch.max(mirna_expression, dim=-1).values
+        elif self.scaling_type == 'sum':
+            mrna_lib = torch.sum(mrna_expression, dim=-1)
+            mirna_lib = torch.sum(mirna_expression, dim=-1)
 
         return mrna_expression, mirna_expression, mrna_lib, mirna_lib, idx
 

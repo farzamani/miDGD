@@ -44,6 +44,8 @@ class GeneExpressionDataset(Dataset):
             lib = torch.mean(expression, dim=-1)
         elif self.scaling_type == 'max':
             lib = torch.max(expression, dim=-1).values
+        elif self.scaling_type == 'sum':
+            lib = torch.sum(expression, dim=-1)
 
         return expression, lib, idx
 

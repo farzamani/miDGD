@@ -25,7 +25,7 @@ class DGD(nn.Module):
                 y, target, scale, mod_id="single", reduction=reduction, type=type)
         elif type == "midgd":
             self.dec_loss = self.decoder.loss(
-                y[1], target[0], scale[0], mod_id="mrna", reduction=reduction, type=type)
+                y[1], target[1], scale[1], mod_id="mrna", reduction=reduction, type=type)
         elif type == "switch":
             self.dec_loss = self.decoder.loss(
                 y[0], target[0], scale[0], mod_id="mirna", reduction=reduction, type=type)

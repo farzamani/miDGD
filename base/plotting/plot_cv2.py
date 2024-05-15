@@ -6,7 +6,7 @@ import torch
 import matplotlib.pyplot as plt
 
 
-def plot_latent_space(rep, means, samples, labels, color_mapping, epoch, fold=0, type="Train", save='latent_space.png'):
+def plot_latent_space(rep, means, samples, labels, color_mapping, epoch, fold=0, dataset="Train", save='latent_space.png'):
     # get PCA
     pca = PCA(n_components=2)
     pca.fit(rep)
@@ -33,44 +33,50 @@ def plot_latent_space(rep, means, samples, labels, color_mapping, epoch, fold=0,
 
     # first plot: representations, means and samples
     sns.scatterplot(data=df, x="PC1", y="PC2", hue="type", size="type", sizes=[3,3,12], alpha=0.8, ax=ax[0], palette=["steelblue","orange","black"])
-    ax[0].set_title("E"+str(epoch)+": "+str(type)+" Latent Space (by type)")
+    ax[0].set_title("E"+str(epoch)+": "+str(dataset)+" Latent Space (by type)")
     ax[0].legend(loc='upper right', fontsize='small')
 
     # second plot: representations by label
     sns.scatterplot(data=df[df["type"] == "Representation"], x="PC1", y="PC2", hue="label", s=3, alpha=0.8, ax=ax[1], palette=color_mapping)
-    ax[1].set_title("E"+str(epoch)+": "+str(type)+" Latent Space (by label)")
+    ax[1].set_title("E"+str(epoch)+": "+str(dataset)+" Latent Space (by label)")
     ax[1].legend(loc='center left', bbox_to_anchor=(1, 0.5), ncol=2, markerscale=3)
 
-    plt.suptitle(f'PCA of {type} Latent Space in Epoch {epoch}', fontsize=16)
+    plt.suptitle(f'PCA of {dataset} Latent Space in Epoch {epoch}', fontsize=16)
     plt.tight_layout()
     
     path = 'plot'
-    plt.savefig(os.path.join(path, save+"_"+type+"_F"+str(fold)+"_E"+str(epoch)+".png"))
+    plt.savefig(os.path.join(path, save+"_"+dataset+"_F"+str(fold)+"_E"+str(epoch)+".png"))
     plt.show()
 
 
-def plot_gene(dgd, loader, sample_index, epoch, fold=0, type="Train", save='mrna_reconstruction'):
+def plot_gene(dgd, loader, sample_index, epoch, device, fold=0, type="Train", save='mrna_reconstruction', scaling_type='mean'):
     x_mrna_n = [None] * len(sample_index)
-    lib_mrna_n = [None] * len(sample_index)
     res_mrna_n = [None] * len(sample_index)
 
     # Get mRNA data
-    for i, j in enumerate(sample_index):
-        # Get training data
-        x_mrna_n[i] = loader.dataset.mrna_data[:,j] + 1
-        ## mRNA
-        x_mrna_n[i] = x_mrna_n[i].cpu().detach().numpy()
-        lib_mrna_n[i] = torch.mean(loader.dataset.mrna_data).cpu().detach().numpy()
-        
-        # Get gene reconstructions via forward method
-        if type == "Train":
-            res_mrna_n[i] = dgd.forward(dgd.train_rep())
-        elif type == "Test":
-            res_mrna_n[i] = dgd.forward(dgd.val_rep())
-        ## mRNA
-        res_mrna_n[i] = res_mrna_n[i][0].cpu().detach().numpy()
-        res_mrna_n[i] = res_mrna_n[i][:,j] 
-        res_mrna_n[i] = (res_mrna_n[i] * lib_mrna_n[i]) + 1
+    with torch.no_grad():
+        for i, j in enumerate(sample_index):
+            # Get training data
+            x_mrna_n[i] = loader.dataset.mrna_data[:,j].clone().detach().cpu().numpy() + 1
+
+            # Get scaling
+            if scaling_type == 'mean':
+                scaling = torch.mean(loader.dataset.mrna_data, axis=1)
+            elif scaling_type == 'max':
+                scaling = torch.max(loader.dataset.mrna_data, axis=1)
+            elif scaling_type == 'sum':
+                scaling = torch.sum(loader.dataset.mrna_data, axis=1)
+
+            # Get gene reconstructions via forward method
+            if type == "Train":
+                _, res_mrna_n[i] = dgd.forward(dgd.train_rep())
+            elif type == "Validation":
+                _, res_mrna_n[i] = dgd.forward(dgd.val_rep())
+            elif type == "Test":
+                _, res_mrna_n[i] = dgd.forward(dgd.test_rep())
+            ## mRNA
+            res_mrna_n[i] = res_mrna_n[i] * scaling.unsqueeze(1).to(device)
+            res_mrna_n[i] = res_mrna_n[i][:,j].clone().detach().cpu().numpy() + 1
         
     # Create a DataFrame to store the data
     data = []
@@ -87,7 +93,9 @@ def plot_gene(dgd, loader, sample_index, epoch, fold=0, type="Train", save='mrna
     sns.set_theme(style="whitegrid")
     
     # Map the histplot to each facet
-    g = sns.displot(data=plotdata, x='value', hue='type', bins=40, log_scale=True, col='sample_index', col_wrap=4, height=3, aspect=1.6, legend=True)
+    g = sns.displot(data=plotdata, x='value', hue='type', 
+                    bins=40, log_scale=True, col='sample_index', 
+                    col_wrap=4, height=3, aspect=1.6, legend=True)
     
     # Set the titles and labels
     g.set_titles(col_template=f'{type} gene ' + '{col_name}' + f' in epoch {epoch}')
@@ -110,28 +118,34 @@ def plot_gene(dgd, loader, sample_index, epoch, fold=0, type="Train", save='mrna
     plt.show()
 
 
-def plot_mirna(dgd, loader, sample_index, epoch, fold=0, type="Train", save='mirna_reconstruction'):
+def plot_mirna(dgd, loader, sample_index, epoch, device, fold=0, type="Train", save='mirna_reconstruction', scaling_type='mean'):
     x_mirna_n = [None] * len(sample_index)
-    lib_mirna_n = [None] * len(sample_index)
     res_mirna_n = [None] * len(sample_index)
 
     # Get mRNA data
-    for i, j in enumerate(sample_index):
-        # Get training data
-        x_mirna_n[i] = loader.dataset.mirna_data[:,j] + 1
-        ## miRNA
-        x_mirna_n[i] = x_mirna_n[i].cpu().detach().numpy()
-        lib_mirna_n[i] = torch.mean(loader.dataset.mirna_data).cpu().detach().numpy()
-        
-        # Get gene reconstructions via forward method
-        if type == "Train":
-            res_mirna_n[i] = dgd.forward(dgd.train_rep())
-        elif type == "Test":
-            res_mirna_n[i] = dgd.forward(dgd.val_rep())
-        ## miRNA
-        res_mirna_n[i] = res_mirna_n[i][0].cpu().detach().numpy()
-        res_mirna_n[i] = res_mirna_n[i][:,j] 
-        res_mirna_n[i] = (res_mirna_n[i] * lib_mirna_n[i]) + 1
+    with torch.no_grad():
+        for i, j in enumerate(sample_index):
+            # Get training data
+            x_mirna_n[i] = loader.dataset.mirna_data[:,j].detach().cpu().numpy() + 1
+
+            # Get scaling
+            if scaling_type == 'mean':
+                scaling = torch.mean(loader.dataset.mirna_data, axis=1)
+            elif scaling_type == 'max':
+                scaling = torch.max(loader.dataset.mirna_data, axis=1)
+            elif scaling_type == 'sum':
+                scaling = torch.sum(loader.dataset.mirna_data, axis=1)
+
+            # Get mirna reconstructions via forward method
+            if type == "Train":
+                res_mirna_n[i], _ = dgd.forward(dgd.train_rep())
+            elif type == "Validation":
+                res_mirna_n[i], _ = dgd.forward(dgd.val_rep())
+            elif type == "Test":
+                res_mirna_n[i], _ = dgd.forward(dgd.test_rep())
+            ## miRNA
+            res_mirna_n[i] = res_mirna_n[i] * scaling.unsqueeze(1).to(device)
+            res_mirna_n[i] = res_mirna_n[i][:,j].detach().cpu().numpy() + 1
         
     # Create a DataFrame to store the data
     data = []
@@ -148,7 +162,9 @@ def plot_mirna(dgd, loader, sample_index, epoch, fold=0, type="Train", save='mir
     sns.set_theme(style="whitegrid")
     
     # Map the histplot to each facet
-    g = sns.displot(data=plotdata, x='value', hue='type', bins=40, log_scale=True, col='sample_index', col_wrap=4, height=3, aspect=1.6, legend=True)
+    g = sns.displot(data=plotdata, x='value', hue='type', 
+                    bins=40, log_scale=True, col='sample_index', 
+                    col_wrap=4, height=3, aspect=1.6, legend=True)
     
     # Set the titles and labels
     g.set_titles(col_template=f'{type} miRNA ' + '{col_name}' + f' in epoch {epoch}')

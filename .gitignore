@@ -1,14 +1,13 @@
 # pycache folder
 __pycache__/
 
-# data
 data
+plot/*
 
 # .ipynb checkpoint files
 .ipynb_checkpoints/
 src/model/.ipynb_checkpoints/
 src*
-
 
 saved_model
 
@@ -18,4 +17,8 @@ main_tcga.ipynb
 run_*
 results*
 
+# wandb files
 wandb*
+
+# slurm log
+midgd_sweep.sh*
