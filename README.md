@@ -42,3 +42,7 @@ An example of how to use some code has been added in the `setup_test.ipynb` note
 Code for the miDGD is stored in `base` and used in all python script and jupyter notebook in this repository.
 
 The main notebook to run miDGD is the `tcga_midgd.ipynb` and the analyses is done in the `analyses.ipynb` notebook.
+
+## Reference
+
+The miDGD model is inspired and adapted from the Deep Generative Decoder (DGD) model, specifically scDGD [(https://doi.org/10.1093/bioinformatics/btad497)](https://doi.org/10.1093/bioinformatics/btad497) and multiDGD [(https://doi.org/10.1101/2023.08.23.554420)](https://doi.org/10.1101/2023.08.23.554420). The repository of the respective model is mentioned in the article paper.
