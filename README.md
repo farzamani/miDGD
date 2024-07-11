@@ -45,4 +45,6 @@ The main notebook to run miDGD is the `tcga_midgd.ipynb` and the analyses is don
 
 ## Reference
 
-The miDGD model is inspired and adapted from the Deep Generative Decoder (DGD) model, specifically scDGD [(https://doi.org/10.1093/bioinformatics/btad497)](https://doi.org/10.1093/bioinformatics/btad497) and multiDGD [(https://doi.org/10.1101/2023.08.23.554420)](https://doi.org/10.1101/2023.08.23.554420). The repository of the respective model is mentioned in the article paper.
+The miDGD model is inspired and adapted from the Deep Generative Decoder (DGD) model, specifically scDGD [(https://doi.org/10.1093/bioinformatics/btad497)](https://doi.org/10.1093/bioinformatics/btad497) and multiDGD [(https://doi.org/10.1101/2023.08.23.554420)](https://doi.org/10.1101/2023.08.23.554420). 
+
+The repository of the respective model is [scDGD](https://github.com/Center-for-Health-Data-Science/scDGD/) and [multiDGD](https://github.com/Center-for-Health-Data-Science/multiDGD).
