@@ -14,13 +14,34 @@ def logNBdensity(k, m, r):
     Returns the log NB in same shape as k
     """
     # remember that gamma(n+1)=n!
-    eps = 1.0e-10  # this is under-/over-flow protection
+    eps = 1e-16  # this is under-/over-flow protection
     x = torch.lgamma(k + r)
     x -= torch.lgamma(r)
     x -= torch.lgamma(k + 1)
     x += k * torch.log(m * (r + m + eps) ** (-1) + eps)
     x += r * torch.log(r * (r + m + eps) ** (-1))
     return x
+
+
+def logZINBdensity(k, m, r, pi):
+    """
+    Zero-Inflated Negative Binomial ZINB(k;m,r,p), where m is the mean and k is "number of failures"
+    r can be real number (and so can k)
+    k and m are tensors of same shape
+    r and pi is tensor of shape (1, n_genes)
+    Returns the log ZINB in same shape as k
+    """
+    # remember that gamma(n+1)=n!
+    eps = 1e-16  # this is under-/over-flow protection
+    log_nb = logNBdensity(k, m, r)
+    
+    log_zinb = torch.where(
+        k == 0,
+        torch.log(pi + eps + (1 - pi) * torch.exp(log_nb)),
+        torch.log(1 - pi + eps) + log_nb
+    )
+    
+    return log_zinb
 
 
 class OutputModule(nn.Module):
@@ -136,17 +157,19 @@ class NB_Module(OutputModule):
         # the model output represents the mean normalized count
         # the scaling factor is the used normalization
         if feature_id is not None:  # feature_id could be a single gene
-            return logNBdensity(
+            log_prob = logNBdensity(
                 target,
                 self.rescale(scaling_factor, model_output),
                 (torch.exp(self.log_r) + 1)[0, feature_id],
             )
         else:
-            return logNBdensity(
+            log_prob = logNBdensity(
                 target,
                 self.rescale(scaling_factor, model_output),
                 (torch.exp(self.log_r) + 1),
             )
+        
+        return log_prob
 
     def loss(self, model_output, target, scaling_factor, gene_id=None):
         return -self.log_prob(model_output, target, scaling_factor, gene_id)
@@ -154,3 +177,84 @@ class NB_Module(OutputModule):
     @property
     def dispersion(self):
         return torch.exp(self.log_r) + 1
+
+
+class ZINB_Module(OutputModule):
+
+    def __init__(self, fc, out_features, r_init=2, pi_init=0.5, scaling_type="sum"):
+        """Args:
+        fc: NN (see parent class)
+        out_features: number of features from the data modelled by this module
+        r_init: initial dispersion factor for all features
+        scaling_type: describes type of transformation from model output to targets
+            and determines what activation function is used on the output
+        """
+        super(ZINB_Module, self).__init__(fc, out_features)
+
+        # substracting 1 now and adding it to the learned dispersion ensures a minimum value of 1
+        self.log_r = torch.nn.Parameter(
+            torch.full(fill_value=math.log(r_init - 1),
+                       size=(1, out_features)),
+            requires_grad=True,
+        )
+        self.logit_pi = torch.nn.Parameter(
+            torch.full(fill_value=math.log(pi_init / (1 - pi_init)),
+                       size=(1, out_features)),
+            requires_grad=True,
+        )
+        self._scaling_type = scaling_type
+        if self._scaling_type == "sum":  # could later re-implement more scalings, but sum is arguably the best so far
+            self._activation = "softmax"
+        elif self._scaling_type == "mean":
+            self._activation = "softplus"
+        elif self._scaling_type == "max":
+            self._activation = "sigmoid"
+        else:
+            raise ValueError(
+                "scaling_type must be one of 'sum', 'mean', or 'max', but is "
+                + self._scaling_type
+            )
+
+    def forward(self, x):
+        for i in range(len(self.fc)):
+            x = self.fc[i](x)
+        if self._activation == "softmax":
+            return F.softmax(x, dim=-1)
+        elif self._activation == "softplus":
+            return F.softplus(x)
+        elif self._activation == "sigmoid":
+            return F.sigmoid(x)
+        else:
+            return x
+
+    @staticmethod
+    def rescale(scaling_factor, model_output):
+        return scaling_factor * model_output
+
+    def log_prob(self, model_output, target, scaling_factor, feature_id=None):
+        # target is the true value
+        # the model output represents the mean normalized count
+        # the scaling factor is the used normalization
+        if feature_id is not None:
+            mu = self.rescale(scaling_factor, model_output)[0, feature_id]
+            r = (torch.exp(self.log_r) + 1)[0, feature_id]
+            pi = torch.sigmoid(self.logit_pi)[0, feature_id]
+        else:
+            mu = self.rescale(scaling_factor, model_output)
+            r = (torch.exp(self.log_r) + 1)
+            pi = torch.sigmoid(self.logit_pi)
+
+        log_prob = logZINBdensity(target, mu, r, pi)
+
+        return log_prob
+
+    def loss(self, model_output, target, scaling_factor, gene_id=None):
+        return -self.log_prob(model_output, target, scaling_factor, gene_id)
+
+    @property
+    def dispersion(self):
+        return torch.exp(self.log_r) + 1
+    
+    @property
+    def pi(self):
+        return torch.sigmoid(self.logit_pi)

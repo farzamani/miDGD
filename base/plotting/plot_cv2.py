@@ -6,7 +6,8 @@ import torch
 import matplotlib.pyplot as plt
 
 
-def plot_latent_space(rep, means, samples, labels, color_mapping, epoch, fold=0, dataset="Train", save='latent_space.png'):
+def plot_latent_space(rep, means, samples, labels, color_mapping, epoch, fold=0, dataset="Train", 
+                      save = False, outdir='plot', outfile='latent_space.png'):
     # get PCA
     pca = PCA(n_components=2)
     pca.fit(rep)
@@ -35,21 +36,31 @@ def plot_latent_space(rep, means, samples, labels, color_mapping, epoch, fold=0,
     sns.scatterplot(data=df, x="PC1", y="PC2", hue="type", size="type", sizes=[3,3,12], alpha=0.8, ax=ax[0], palette=["steelblue","orange","black"])
     ax[0].set_title("E"+str(epoch)+": "+str(dataset)+" Latent Space (by type)")
     ax[0].legend(loc='upper right', fontsize='small')
+    
+    # add explained variance to x-label and y-label for first plot
+    ax[0].set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
+    ax[0].set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
 
     # second plot: representations by label
     sns.scatterplot(data=df[df["type"] == "Representation"], x="PC1", y="PC2", hue="label", s=3, alpha=0.8, ax=ax[1], palette=color_mapping)
     ax[1].set_title("E"+str(epoch)+": "+str(dataset)+" Latent Space (by label)")
     ax[1].legend(loc='center left', bbox_to_anchor=(1, 0.5), ncol=2, markerscale=3)
+    
+    # add explained variance to x-label and y-label for second plot
+    ax[1].set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
+    ax[1].set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
 
     plt.suptitle(f'PCA of {dataset} Latent Space in Epoch {epoch}', fontsize=16)
     plt.tight_layout()
     
-    path = 'plot'
-    plt.savefig(os.path.join(path, save+"_"+dataset+"_F"+str(fold)+"_E"+str(epoch)+".png"))
-    plt.show()
+    if save:
+        plt.savefig(os.path.join(outdir, outfile+"_"+dataset+"_F"+str(fold)+"_E"+str(epoch)+".png"))
+    else:
+        plt.show()
 
 
-def plot_gene(dgd, loader, sample_index, epoch, device, fold=0, type="Train", save='mrna_reconstruction', scaling_type='mean'):
+def plot_gene(dgd, loader, sample_index, epoch, device, fold=0, type="Train", 
+              save=False, scaling_type='mean'):
     x_mrna_n = [None] * len(sample_index)
     res_mrna_n = [None] * len(sample_index)
 
@@ -105,7 +116,7 @@ def plot_gene(dgd, loader, sample_index, epoch, device, fold=0, type="Train", sa
     # Adjust the spacing between subplots
     g.tight_layout()
     g.fig.suptitle(f'{type} mRNA Reconstruction in Epoch {epoch}', fontsize=16)
-    g.fig.subplots_adjust(top=0.9)  # Adjust the top margin
+    g.fig.subplots_adjust(top=0.8)  # Adjust the top margin
     
     sns.move_legend(
         g, "upper center",
@@ -114,11 +125,13 @@ def plot_gene(dgd, loader, sample_index, epoch, device, fold=0, type="Train", sa
     
     # Save the plot
     path = 'plot'
-    g.savefig(os.path.join(path, save+"_"+type+"_F"+str(fold)+"_E"+str(epoch)+".png"))
-    plt.show()
+    if save:
+        g.savefig(os.path.join(path, save+"_"+type+"_F"+str(fold)+"_E"+str(epoch)+".png"))
+    else:
+        plt.show()
 
 
-def plot_mirna(dgd, loader, sample_index, epoch, device, fold=0, type="Train", save='mirna_reconstruction', scaling_type='mean'):
+def plot_mirna(dgd, loader, sample_index, epoch, device, fold=0, type="Train", save=False, scaling_type='mean'):
     x_mirna_n = [None] * len(sample_index)
     res_mirna_n = [None] * len(sample_index)
 
@@ -174,7 +187,7 @@ def plot_mirna(dgd, loader, sample_index, epoch, device, fold=0, type="Train", s
     # Adjust the spacing between subplots
     g.tight_layout()
     g.fig.suptitle(f'{type} miRNA Reconstruction in Epoch {epoch}', fontsize=16)
-    g.fig.subplots_adjust(top=0.9)  # Adjust the top margin
+    g.fig.subplots_adjust(top=0.8)  # Adjust the top margin
     sns.move_legend(
         g, "upper center",
         bbox_to_anchor=(0.5, -0.01), ncol=2, title=None, frameon=False
@@ -182,5 +195,7 @@ def plot_mirna(dgd, loader, sample_index, epoch, device, fold=0, type="Train", s
     
     # Save the plot
     path = 'plot'
-    g.savefig(os.path.join(path, save+"_"+type+"_F"+str(fold)+"_E"+str(epoch)+".png"))
-    plt.show()
+    if save:
+        g.savefig(os.path.join(path, save+"_"+type+"_F"+str(fold)+"_E"+str(epoch)+".png"))
+    else:
+        plt.show()

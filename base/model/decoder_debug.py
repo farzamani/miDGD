@@ -109,6 +109,27 @@ class Decoder(nn.Module):
                     nn_output[1], target[1], scale[1], feature_id=feature_ids).mean()
                 return log_prob_mirna, log_prob_mrna
             return log_prob
+        elif reduction == 'sample':
+            log_prob_mirna = []
+            log_prob_mrna = []
+            log_prob = []
+
+            if mod_id == "mirna":
+                log_prob += self.out_module_mirna.log_prob(
+                    nn_output, target, scale, feature_id=feature_ids).mean()
+            elif mod_id == "mrna":
+                log_prob += self.out_module_mrna.log_prob(
+                    nn_output, target, scale, feature_id=feature_ids).mean()
+            elif mod_id == "single":
+                log_prob += self.out_module.log_prob(
+                    nn_output, target, scale, feature_id=feature_ids).mean()
+            else:
+                log_prob_mirna += self.out_module_mirna.log_prob(
+                    nn_output[0], target[0], scale[0], feature_id=feature_ids).mean()
+                log_prob_mrna += self.out_module_mrna.log_prob(
+                    nn_output[1], target[1], scale[1], feature_id=feature_ids).mean()
+                return log_prob_mirna, log_prob_mrna
+            return log_prob
         else:
             dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             if mod_id is not None:

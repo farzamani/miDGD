@@ -3,6 +3,10 @@ __pycache__/
 
 data
 plot/*
+plots/*
+scripts
+metrics/*
+models/*
 
 # .ipynb checkpoint files
 .ipynb_checkpoints/
@@ -16,6 +20,7 @@ main_tcga.ipynb
 
 run_*
 results*
+*.out
 
 # wandb files
 wandb*

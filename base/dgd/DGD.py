@@ -8,7 +8,7 @@ class DGD(nn.Module):
         self.decoder = decoder
         self.rep_dim = rep_dim      # Dimension of representation
 
-        self.gmm = GaussianMixture(n_mix, rep_dim, **gmm_spec)
+        self.gmm = GaussianMixture(n_mix, rep_dim, **gmm_spec, covariance_type="diagonal")
         self.train_rep = None
         self.val_rep = None
         self.test_rep = None

@@ -1,4 +1,4 @@
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 
 def plot_kfold(X, n_splits=5, figsize=(12, 6)):
 
-    kf = KFold(n_splits=n_splits) 
+    skf = StratifiedKFold(n_splits=n_splits) 
 
     fig, ax = plt.subplots(figsize=figsize)  # Increased figure size for better clarity
 
     # Generate the training/testing visualizations for each CV split
-    for ii, (tr, tt) in enumerate(kf.split(X)):
+    for ii, (tr, tt) in enumerate(skf.split(X, X['cancer_type'])):
         # Fill in indices with the training/test groups
         indices = np.array([np.nan] * len(X))
         indices[tt] = 1

@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
 import numpy as np
 
 
@@ -63,3 +63,43 @@ class GeneExpressionDatasetCombined(Dataset):
         if idx is None:
             idx = np.arange(self.__len__())
         return self.label[idx]
+    
+
+class StratifiedBatchSampler(Sampler):
+    def __init__(self, labels, batch_size, shuffle=True):
+        self.labels = np.array(labels)
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        
+        self.unique_labels, self.label_counts = np.unique(self.labels, return_counts=True)
+        self.label_to_idx = {label: np.where(self.labels == label)[0] for label in self.unique_labels}
+        
+    def __iter__(self):
+        if self.shuffle:
+            for label in self.unique_labels:
+                np.random.shuffle(self.label_to_idx[label])
+        
+        num_batches = len(self.labels) // self.batch_size
+        proportions = self.label_counts / len(self.labels)
+        
+        for _ in range(num_batches):
+            batch = []
+            for label, prop in zip(self.unique_labels, proportions):
+                n_samples = int(prop * self.batch_size)
+                if len(self.label_to_idx[label]) < n_samples:
+                    # If we don't have enough samples, reshuffle
+                    self.label_to_idx[label] = np.where(self.labels == label)[0]
+                    if self.shuffle:
+                        np.random.shuffle(self.label_to_idx[label])
+                batch.extend(self.label_to_idx[label][:n_samples])
+                self.label_to_idx[label] = self.label_to_idx[label][n_samples:]
+            
+            if len(batch) < self.batch_size:
+                # Fill the remaining slots randomly
+                remaining = self.batch_size - len(batch)
+                batch.extend(np.random.choice(len(self.labels), remaining, replace=False))
+            
+            yield batch
+    
+    def __len__(self):
+        return len(self.labels) // self.batch_size

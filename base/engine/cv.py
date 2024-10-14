@@ -3,11 +3,12 @@ from sklearn.model_selection import StratifiedKFold
 from base.data.combined import GeneExpressionDatasetCombined
 from base.dgd.DGD import DGD
 from base.engine.train import train_midgd, train_midgd_all
-import wandb
 
-def cross_validate(mrna_data, mirna_data, batch_size, device, num_workers, 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def cross_validate(mrna_data, mirna_data, batch_size, num_workers, 
                    decoder, n_tissues, latent_dim, gmm_spec,
-                   learning_rates, weight_decay, betas, reduction_type, nepochs,
+                   learning_rates, weight_decay, betas, reduction_type, scaling_type, nepochs,
                    pr, plot, sample_index, subset, is_plot=False, n_splits=5, 
                    mode="all", wandb_log=True, seed=42, early_stopping=False):
 
@@ -29,8 +30,8 @@ def cross_validate(mrna_data, mirna_data, batch_size, device, num_workers,
         val_mirna = mirna_data.iloc[val_idx]
 
         # Create the datasets and data loaders
-        train_dataset = GeneExpressionDatasetCombined(train_mrna, train_mirna, scaling_type='mean')
-        val_dataset = GeneExpressionDatasetCombined(val_mrna, val_mirna, scaling_type='mean')
+        train_dataset = GeneExpressionDatasetCombined(train_mrna, train_mirna, scaling_type=scaling_type)
+        val_dataset = GeneExpressionDatasetCombined(val_mrna, val_mirna, scaling_type=scaling_type)
 
         train_loader = torch.utils.data.DataLoader(train_dataset, 
                                            batch_size=batch_size, 
